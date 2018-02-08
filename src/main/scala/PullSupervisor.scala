@@ -1,17 +1,12 @@
-import akka.actor.{Actor, ActorRef, PoisonPill, Props}
+import akka.Done
+import akka.actor.{Actor, ActorRef, ActorSystem, PoisonPill, Props}
 import com.typesafe.config.Config
 
-class PullSupervisor(config: Config, feedUrl: String) extends Actor {
-    case object StartPull
-
+class PullSupervisor(config: Config, system: ActorSystem, feedUrl: String) extends Actor {
     private val log = org.log4s.getLogger
 
-    override def preStart(): Unit = {
-        self ! StartPull
-    }
-
     def receive = {
-        case StartPull =>
+        case PullSupervisor.StartPull =>
             log.debug(s"Received pull request")
             val maxFeedSize = config.getMemorySize("livefeeds.max-feed-size").toBytes
             context.actorOf(PullWorker.props(feedUrl, maxFeedSize))
@@ -28,13 +23,18 @@ class PullSupervisor(config: Config, feedUrl: String) extends Actor {
         case msg: PullSummary =>
             log.debug(msg.toString)
             self ! PoisonPill
+            initiator ! Done
 
         case msg: PullFailure =>
             log.debug(msg.toString)
             self ! PoisonPill
+            initiator ! Done
     }
 }
 
 object PullSupervisor {
-    def props(config: Config, feedUrl: String) = Props(new PullSupervisor(config, feedUrl))
+    case object StartPull
+
+    def props(config: Config, system: ActorSystem, feedUrl: String) =
+        Props(new PullSupervisor(config, system, feedUrl))
 }
