@@ -1,5 +1,6 @@
 import java.time.Instant
 import scala.util.{Failure, Success}
+import scala.concurrent.duration._
 import akka.actor.{Actor, PoisonPill, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpMethods.GET
@@ -59,7 +60,7 @@ class PullWorker(feedUrl: String, maxFeedSize: Long) extends Actor {
             context.parent ! start
 
         case _: ByteString =>
-            sender() ! Ack
+            context.system.scheduler.scheduleOnce(1.second, sender(), Ack)(context.dispatcher)
 
         case PullFinished =>
             log.debug("Received pull finish")
